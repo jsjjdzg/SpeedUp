@@ -1,11 +1,14 @@
 package com.dzg.network.speed.controller;
 
-import com.dzg.network.speed.entity.SpeedUpEntity;
-import okhttp3.FormBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -15,12 +18,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.TimeZone;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.dzg.network.speed.entity.SpeedUpEntity;
+
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * @auther: dingzhenggang
@@ -41,16 +47,21 @@ public class SpeendUpController {
   private final char[] HEX = {48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70};
 
   @GetMapping("/start")
-  public String start(@RequestParam SpeedUpEntity param) {
+  public String start(@RequestParam Map<String, Object> params) {
+      
     SpeedUpEntity su = new SpeedUpEntity();
-    if (param.getLoop() == false) {
+    JSONObject orig = JSONObject.parseObject(JSON.toJSONString(params));
+    su = (SpeedUpEntity) JSONObject.parseObject(orig.toJSONString(),
+    		SpeedUpEntity.class);
+    
+    if (su.getLoop() == false) {
       su.setLoop(true);
     }
-    if (param.getSession() == null || param.getSecret() == null) {
-      su = new SpeedUpEntity().setSession("Session")
-              .setSecret("Secret").setLoop(true);
+    if (su.getSession() == null || su.getSecret() == null) {
+      su = new SpeedUpEntity().setSession("XXX")
+              .setSecret("XXX").setLoop(true);
     } else {
-      BeanUtils.copyProperties(param, su);
+      BeanUtils.copyProperties(su, su);
     }
     startSpeedUp(su);
     return "开始提速和定时提速";
@@ -59,12 +70,10 @@ public class SpeendUpController {
   public void startSpeedUp(SpeedUpEntity su) {
     try {
       if (su.getLoop()) {
-        while (true) {
-          String[] response = runExec(su.getSession(), su.getSecret());
-          printInfo("Running time " + (++count) + ", response code: " + response[0] + ", content: " + response[1]);
-          // 定时10分钟执行
-          heartBeat(su);
-        }
+	      String[] response = runExec(su.getSession(), su.getSecret());
+	      printInfo("Running time " + (++count) + ", response code: " + response[0] + ", content: " + response[1]);
+	      // 定时10分钟执行
+	      heartBeat(su);
       } else {
         String[] response = runExec(su.getSession(), su.getSecret());
         printInfo("Request sent, response code: " + response[0] + ", content: " + response[1]);
