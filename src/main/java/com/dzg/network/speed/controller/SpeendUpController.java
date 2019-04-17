@@ -40,9 +40,12 @@ public class SpeendUpController {
   private ThreadPoolTaskScheduler threadPoolTaskScheduler;
 
   private final String SESSION_KEY = "SessionKey";
-  private final String ACCESS_URL = "family/qos/startQos.action";
+  private final String START_UP_URL = "https://api.cloud.189.cn/speed/startSpeedV2.action";
+  private final String STOP_UP_URL = "https://api.cloud.189.cn/speed/stopSpeedV2.action";
+  private final String QOS_ACCESS_URL = "family/qos/startQos.action";
   private final String UP_QOS_URL = "http://api.cloud.189.cn/family/qos/startQos.action";
   private int count = 0;
+  private String qosSn = "";
 
   private final char[] HEX = {48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70};
 
@@ -58,8 +61,10 @@ public class SpeendUpController {
       su.setLoop(true);
     }
     if (su.getSession() == null || su.getSecret() == null) {
-      su = new SpeedUpEntity().setSession("XXX")
-              .setSecret("XXX").setLoop(true);
+      su = new SpeedUpEntity().setSession("X")
+              .setSecret("X")
+              .setQosClientSn("X")
+              .setClientSn("X").setLoop(true);
     } else {
       BeanUtils.copyProperties(su, su);
     }
@@ -74,6 +79,9 @@ public class SpeendUpController {
 	      printInfo("Running time " + (++count) + ", response code: " + response[0] + ", content: " + response[1]);
 	      // 定时10分钟执行
 	      heartBeat(su);
+	      // 5分钟加速
+    	  startSpeed(su.getSession(), su.getSecret(), su.getQosClientSn(), su.getClientSn());
+	      SpeedHeartBeat(su);
       } else {
         String[] response = runExec(su.getSession(), su.getSecret());
         printInfo("Request sent, response code: " + response[0] + ", content: " + response[1]);
@@ -92,6 +100,22 @@ public class SpeendUpController {
       }
     }, new CronTrigger("0 0/10 * * * ?"));
   }
+  
+  
+  public void SpeedHeartBeat(SpeedUpEntity su) {
+    threadPoolTaskScheduler.schedule(new Runnable() {
+      @Override
+      public void run() {
+    	stopSpeed(su.getSession(), su.getSecret(), su.getQosClientSn(), su.getClientSn(),qosSn);
+    	try {
+			Thread.sleep(500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+        startSpeed(su.getSession(), su.getSecret(), su.getQosClientSn(), su.getClientSn());
+      }
+    }, new CronTrigger("0 0/5 * * * ?"));
+  }
 
   private void printInfo(String string) {
     System.out.println(getTime() + " Thread " + Thread.currentThread().getId() + " - INFO - " + string);
@@ -99,7 +123,7 @@ public class SpeendUpController {
 
   private String[] runExec(String session, String secret) {
     String date = syncServerDate();
-    String signature = getSignatrue(ACCESS_URL, session, secret, "POST", date);
+    String signature = getSignatrue(QOS_ACCESS_URL, session, secret, "POST", date);
     OkHttpClient okHttpClient = new OkHttpClient();
     RequestBody formBody = new FormBody.Builder().add("prodCode", 76 + "").build();
     Request req = new Request.Builder()
@@ -119,6 +143,71 @@ public class SpeendUpController {
       } else {
         return new String[]{response.code() + "", null};
       }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return new String[]{"完犊子"};
+    }
+  }
+  
+  private String[] startSpeed(String session, String secret,String qosClientSn,String clientSn) {
+	  String date = syncServerDate();
+    OkHttpClient okHttpClient = new OkHttpClient();
+    String signature = getSignatrue(QOS_ACCESS_URL, session, secret, "POST", date);
+    RequestBody formBody = new FormBody.Builder()
+    		.add("qosClientSn", qosClientSn)
+    		.add("clientType", "TELEIPAD")
+    		.add("version", "7.3.3")
+    		.add("model", "iPad")
+    		.add("osFamily", "iOS")
+    		.add("osVersion", "12.1")
+    		.add("clientSn", clientSn)
+    		.build();
+    Request req = new Request.Builder()
+            .post(formBody)
+            .url(START_UP_URL)
+            .addHeader("SessionKey", session)
+            .addHeader("Signature", signature)
+            .addHeader("Date", date)
+            .build();
+    try (Response response = okHttpClient.newCall(req).execute()) {
+      String content = response.body().string();
+      System.err.println("开始加速： " + content);
+      int start = content.indexOf("<qosSn>");
+      int end = content.indexOf("</qosSn>");
+	  qosSn = content.substring(start+7, end);
+	  System.err.println("当前qosSn为： " + qosSn);
+	  return new String[]{"完美"};
+    } catch (Exception e) {
+      e.printStackTrace();
+      return new String[]{"完犊子"};
+    }
+  }
+  
+  private String[] stopSpeed(String session, String secret,String qosClientSn,String clientSn,String qosSn) {
+	  String date = syncServerDate();
+    OkHttpClient okHttpClient = new OkHttpClient();
+    String signature = getSignatrue(QOS_ACCESS_URL, session, secret, "POST", date);
+    RequestBody formBody = new FormBody.Builder()
+    		.add("qosSn", qosSn)
+    		.add("qosClientSn", qosClientSn)
+    		.add("clientType", "TELEIPAD")
+    		.add("version", "7.3.3")
+    		.add("model", "iPad")
+    		.add("osFamily", "iOS")
+    		.add("osVersion", "12.1")
+    		.add("clientSn", clientSn)
+    		.build();
+    Request req = new Request.Builder()
+            .post(formBody)
+            .url(STOP_UP_URL)
+            .addHeader("SessionKey", session)
+            .addHeader("Signature", signature)
+            .addHeader("Date", date)
+            .build();
+    try (Response response = okHttpClient.newCall(req).execute()) {
+      String content = response.body().string();
+      System.err.println("关闭加速 ： " + content);
+      return new String[]{"完美"};
     } catch (Exception e) {
       e.printStackTrace();
       return new String[]{"完犊子"};

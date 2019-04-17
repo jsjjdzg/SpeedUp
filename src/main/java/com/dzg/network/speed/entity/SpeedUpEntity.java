@@ -20,4 +20,7 @@ public class SpeedUpEntity {
   private String session;
   private String secret;
   private Boolean loop;
+  private String qosClientSn;
+  private String clientSn;
+  private String qosSn;
 }
