@@ -61,10 +61,10 @@ public class SpeendUpController {
       su.setLoop(true);
     }
     if (su.getSession() == null || su.getSecret() == null) {
-      su = new SpeedUpEntity().setSession("X")
-              .setSecret("X")
-              .setQosClientSn("X")
-              .setClientSn("X").setLoop(true);
+    	su = new SpeedUpEntity().setSession("N")
+                .setSecret("M")
+                .setQosClientSn("S")
+                .setClientSn("L").setLoop(true);
     } else {
       BeanUtils.copyProperties(su, su);
     }
@@ -108,7 +108,7 @@ public class SpeendUpController {
       public void run() {
     	stopSpeed(su.getSession(), su.getSecret(), su.getQosClientSn(), su.getClientSn(),qosSn);
     	try {
-			Thread.sleep(500);
+			Thread.sleep((int)(Math.random() * 3000));
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
